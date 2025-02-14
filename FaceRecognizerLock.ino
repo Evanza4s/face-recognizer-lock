@@ -1,6 +1,9 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <ESP32Servo.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 // WARNING!!! Make sure that you have either selected ESP32 Wrover Module,
 // or another board which has PSRAM enabled
