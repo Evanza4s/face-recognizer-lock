@@ -1,9 +1,5 @@
 #include "esp_camera.h"
 #include <WiFi.h>
-#include <ESP32Servo.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 
 // WARNING!!! Make sure that you have either selected ESP32 Wrover Module,
 // or another board which has PSRAM enabled
@@ -22,29 +18,16 @@ const char* password = "lausanne1265461";
 
 const char* serverUrl = "http://192.168.1.101:5000/recognize"; 
 
-// Buzzer & LED Pins
-#define BUZZER_PIN 15
-#define LED_GREEN 2
-#define LED_RED 4
-
-// Ultrasonic sensor pins
+// Ultrasonic sensor
 #define TRIG_PIN 12
 #define ECHO_PIN 13
 #define DISTANCE_THRESHOLD 50
 
-// OLED Display Configuration
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-
 boolean matchFace = false;
-boolean activeLock = false;
-long prevMillis = 0;
-int interval = 5000;
 
 void startCameraServer();
 
-// Function to measure distance
+// Fungsi untuk mengukur jarak
 long getDistance() {
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
@@ -57,26 +40,13 @@ long getDistance() {
     return distance;
 }
 
-void updateDisplay(String message) {
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 20);
-    display.println(message);
-    display.display();
-}
-
 void setup() {
     Serial.begin(115200);
+    Serial1.begin(9600, SERIAL_8N1, 2, 3); // RX=2, TX=3 untuk komunikasi ke Arduino
+    Serial.println("ESP32-CAM Booting...");
 
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nWiFi Connected!");
-    Serial.print("ESP32-CAM IP: ");
-    Serial.println(WiFi.localIP());
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
 
     // Inisialisasi kamera
     camera_config_t config;
@@ -113,34 +83,35 @@ void setup() {
 
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {
-        Serial.printf("Camera Init Failed! Error 0x%x", err);
+        Serial.printf("Camera init failed with error 0x%x", err);
         return;
     }
 
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nWiFi connected");
     startCameraServer();
 }
 
 void loop() {
-    camera_fb_t *fb = esp_camera_fb_get();
-    if (!fb) {
-        Serial.println("Failed to capture image");
-        return;
+    long distance = getDistance();
+    Serial.print("Distance: ");
+    Serial.println(distance);
+
+    if (distance <= DISTANCE_THRESHOLD) {
+        // Simulasi Face Recognition (Bisa diganti dengan model AI sebenarnya)
+        matchFace = random(0, 2); // 0 = Tidak dikenali, 1 = Dikenali
+
+        if (matchFace) {
+            Serial.println("Face Matched! Sending command to Arduino...");
+            Serial1.println("OPEN"); // Kirim perintah ke Arduino
+        } else {
+            Serial.println("Face Not Recognized! Sending command to Arduino...");
+            Serial1.println("DENY");
+        }
     }
-
-    HTTPClient http;
-    http.begin(serverUrl);
-    http.addHeader("Content-Type", "image/jpeg");
-
-    int httpResponseCode = http.POST(fb->buf, fb->len);
-    if (httpResponseCode > 0) {
-        String response = http.getString();
-        Serial.println("Face Recognition Response: " + response);
-    } else {
-        Serial.println("Failed to send image to server");
-    }
-
-    esp_camera_fb_return(fb);
-    http.end();
-
-    delay(5000); // Kirim gambar setiap 5 detik
+    delay(2000);
 }
