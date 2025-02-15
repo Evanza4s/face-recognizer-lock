@@ -20,6 +20,8 @@
 const char* ssid = "Denis iPhone";
 const char* password = "lausanne1265461";
 
+const char* serverUrl = "http://192.168.1.101/recognize"; 
+
 // Buzzer & LED Pins
 #define BUZZER_PIN 15
 #define LED_GREEN 2
@@ -29,12 +31,6 @@ const char* password = "lausanne1265461";
 #define TRIG_PIN 12
 #define ECHO_PIN 13
 #define DISTANCE_THRESHOLD 50
-
-// Servo configuration
-Servo lockServo;
-#define SERVO_PIN 14
-#define SERVO_LOCKED_ANGLE 0
-#define SERVO_UNLOCKED_ANGLE 90
 
 // OLED Display Configuration
 #define SCREEN_WIDTH 128
@@ -61,7 +57,6 @@ long getDistance() {
     return distance;
 }
 
-// Function to update OLED Display
 void updateDisplay(String message) {
     display.clearDisplay();
     display.setTextSize(2);
@@ -73,32 +68,17 @@ void updateDisplay(String message) {
 
 void setup() {
     Serial.begin(115200);
-    Serial.setDebugOutput(true);
-    Serial.println();
 
-    // Initialize OLED Display
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        Serial.println("SSD1306 initialization failed");
-        return;
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
     }
-    updateDisplay("Starting...");
+    Serial.println("\nWiFi Connected!");
+    Serial.print("ESP32-CAM IP: ");
+    Serial.println(WiFi.localIP());
 
-    // Configure ultrasonic sensor
-    pinMode(TRIG_PIN, OUTPUT);
-    pinMode(ECHO_PIN, INPUT);
-
-    // Configure Buzzer & LEDs
-    pinMode(BUZZER_PIN, OUTPUT);
-    pinMode(LED_GREEN, OUTPUT);
-    pinMode(LED_RED, OUTPUT);
-    digitalWrite(LED_GREEN, LOW);
-    digitalWrite(LED_RED, LOW);
-
-    // Configure servo motor
-    lockServo.attach(SERVO_PIN);
-    lockServo.write(SERVO_LOCKED_ANGLE);
-
-    // Camera initialization
+    // Inisialisasi kamera
     camera_config_t config;
     config.ledc_channel = LEDC_CHANNEL_0;
     config.ledc_timer = LEDC_TIMER_0;
@@ -121,7 +101,6 @@ void setup() {
     config.xclk_freq_hz = 20000000;
     config.pixel_format = PIXFORMAT_JPEG;
 
-    // Check if PSRAM is available
     if (psramFound()) {
         config.frame_size = FRAMESIZE_UXGA;
         config.jpeg_quality = 10;
@@ -132,63 +111,36 @@ void setup() {
         config.fb_count = 1;
     }
 
-    // Initialize camera
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {
-        Serial.printf("Camera init failed with error 0x%x", err);
+        Serial.printf("Camera Init Failed! Error 0x%x", err);
         return;
     }
 
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nWiFi connected");
-    updateDisplay("WiFi OK");
-
     startCameraServer();
-    Serial.print("Camera Ready! Use 'http://");
-    Serial.print(WiFi.localIP());
-    Serial.println("' to connect");
 }
 
 void loop() {
-    // Measure distance
-    long distance = getDistance();
-    Serial.print("Distance: ");
-    Serial.println(distance);
-
-    // Cek apakah wajah cocok dan berada dalam jarak yang ditentukan
-    if (matchFace && distance <= DISTANCE_THRESHOLD && !activeLock) {
-        activeLock = true;
-        lockServo.write(SERVO_UNLOCKED_ANGLE); // Unlock
-        digitalWrite(LED_GREEN, HIGH);
-        digitalWrite(LED_RED, LOW);
-        tone(BUZZER_PIN, 1000, 500); // Beep sebentar
-        updateDisplay("Access Granted");
-        Serial.println("Face Matched: Unlocking...");
-
-        prevMillis = millis();
-    } 
-    else if (!matchFace && distance <= DISTANCE_THRESHOLD) {
-        digitalWrite(LED_GREEN, LOW);
-        digitalWrite(LED_RED, HIGH);
-        tone(BUZZER_PIN, 2000, 1000); // Beep lebih lama untuk ditolak
-        updateDisplay("Access Denied");
-        Serial.println("Face Not Recognized: Access Denied");
+    camera_fb_t *fb = esp_camera_fb_get();
+    if (!fb) {
+        Serial.println("Failed to capture image");
+        return;
     }
 
-    // Kunci kembali setelah interval
-    if (activeLock && millis() - prevMillis > interval) {
-        activeLock = false;
-        matchFace = false;
-        lockServo.write(SERVO_LOCKED_ANGLE);
-        digitalWrite(LED_GREEN, LOW);
-        digitalWrite(LED_RED, LOW);
-        updateDisplay("Locked");
-        Serial.println("Locking the lock...");
+    HTTPClient http;
+    http.begin(serverUrl);
+    http.addHeader("Content-Type", "image/jpeg");
+
+    int httpResponseCode = http.POST(fb->buf, fb->len);
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.println("Face Recognition Response: " + response);
+    } else {
+        Serial.println("Failed to send image to server");
     }
 
-    delay(500);
+    esp_camera_fb_return(fb);
+    http.end();
+
+    delay(5000); // Kirim gambar setiap 5 detik
 }
