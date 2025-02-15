@@ -20,7 +20,7 @@
 const char* ssid = "Denis iPhone";
 const char* password = "lausanne1265461";
 
-const char* serverUrl = "http://192.168.1.101/recognize"; 
+const char* serverUrl = "http://192.168.1.101:5000/recognize"; 
 
 // Buzzer & LED Pins
 #define BUZZER_PIN 15
