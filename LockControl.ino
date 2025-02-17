@@ -1,4 +1,7 @@
 #include <Servo.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 // Pin komponen
 #define SERVO_PIN 9
@@ -8,6 +11,20 @@
 
 Servo lockServo;
 String receivedData = "";
+
+// OLED Display
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+void updateDisplay(String message) {
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(0, 20);
+    display.println(message);
+    display.display();
+}
 
 void setup() {
     Serial.begin(9600);
@@ -20,6 +37,13 @@ void setup() {
 
     digitalWrite(LED_GREEN, LOW);
     digitalWrite(LED_RED, LOW);
+
+    // Inisialisasi OLED
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+        Serial.println("SSD1306 initialization failed");
+        return;
+    }
+    updateDisplay("System Ready");
 }
 
 void loop() {
@@ -32,18 +56,22 @@ void loop() {
             digitalWrite(LED_RED, LOW);
             lockServo.write(90); // Buka kunci
             tone(BUZZER_PIN, 1000, 500);
+            updateDisplay("Door Unlocked");
             Serial.println("Door Unlocked");
         }
         else if (receivedData == "DENY") {
             digitalWrite(LED_GREEN, LOW);
             digitalWrite(LED_RED, HIGH);
             tone(BUZZER_PIN, 2000, 1000);
+            updateDisplay("Access Denied");
             Serial.println("Access Denied");
         }
 
-        delay(5000); // Delay untuk simpan status sebelum kembali ke posisi awal
+        delay(5000); // Tunggu sebelum mengunci kembali
         lockServo.write(0); // Kunci kembali
         digitalWrite(LED_GREEN, LOW);
         digitalWrite(LED_RED, LOW);
+        updateDisplay("Locked");
+        Serial.println("Locked");
     }
 }

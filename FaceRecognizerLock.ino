@@ -1,5 +1,8 @@
 #include "esp_camera.h"
 #include <WiFi.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 // WARNING!!! Make sure that you have either selected ESP32 Wrover Module,
 // or another board which has PSRAM enabled
@@ -23,11 +26,15 @@ const char* serverUrl = "http://192.168.1.101:5000/recognize";
 #define ECHO_PIN 13
 #define DISTANCE_THRESHOLD 50
 
+// OLED Display
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
 boolean matchFace = false;
 
 void startCameraServer();
 
-// Fungsi untuk mengukur jarak
 long getDistance() {
     digitalWrite(TRIG_PIN, LOW);
     delayMicroseconds(2);
@@ -40,15 +47,30 @@ long getDistance() {
     return distance;
 }
 
+void updateDisplay(String message) {
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(0, 20);
+    display.println(message);
+    display.display();
+}
+
 void setup() {
     Serial.begin(115200);
-    Serial1.begin(9600, SERIAL_8N1, 2, 3); // RX=2, TX=3 untuk komunikasi ke Arduino
-    Serial.println("ESP32-CAM Booting...");
+    Serial1.begin(9600, SERIAL_8N1, 2, 3); // TX ke Arduino
 
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
 
-    // Inisialisasi kamera
+    // Inisialisasi OLED
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+        Serial.println("SSD1306 initialization failed");
+        return;
+    }
+    updateDisplay("Starting...");
+
+    // Inisialisasi Kamera
     camera_config_t config;
     config.ledc_channel = LEDC_CHANNEL_0;
     config.ledc_timer = LEDC_TIMER_0;
@@ -92,7 +114,8 @@ void setup() {
         delay(500);
         Serial.print(".");
     }
-    Serial.println("\nWiFi connected");
+    updateDisplay("WiFi Connected");
+
     startCameraServer();
 }
 
@@ -102,15 +125,17 @@ void loop() {
     Serial.println(distance);
 
     if (distance <= DISTANCE_THRESHOLD) {
-        // Simulasi Face Recognition (Bisa diganti dengan model AI sebenarnya)
+        updateDisplay("Detecting Face...");
+        
+        // Simulasi Pengenalan Wajah
         matchFace = random(0, 2); // 0 = Tidak dikenali, 1 = Dikenali
 
         if (matchFace) {
-            Serial.println("Face Matched! Sending command to Arduino...");
-            Serial1.println("OPEN"); // Kirim perintah ke Arduino
+            Serial1.println("OPEN");
+            updateDisplay("Access Granted");
         } else {
-            Serial.println("Face Not Recognized! Sending command to Arduino...");
             Serial1.println("DENY");
+            updateDisplay("Access Denied");
         }
     }
     delay(2000);
