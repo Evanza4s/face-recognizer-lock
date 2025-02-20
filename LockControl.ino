@@ -17,19 +17,12 @@ String receivedData = "";
 #define SCREEN_HEIGHT 64
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-void updateDisplay(String message) {
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 20);
-    display.println(message);
-    display.display();
-}
+void updateDisplay(String message);
 
 void setup() {
     Serial.begin(9600);
     lockServo.attach(SERVO_PIN);
-    lockServo.write(0); // Posisi awal terkunci
+    lockServo.write(0);
 
     pinMode(BUZZER_PIN, OUTPUT);
     pinMode(LED_GREEN, OUTPUT);
@@ -38,7 +31,7 @@ void setup() {
     digitalWrite(LED_GREEN, LOW);
     digitalWrite(LED_RED, LOW);
 
-    // Inisialisasi OLED
+    // OLED Display
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println("SSD1306 initialization failed");
         return;
@@ -54,24 +47,22 @@ void loop() {
         if (receivedData == "OPEN") {
             digitalWrite(LED_GREEN, HIGH);
             digitalWrite(LED_RED, LOW);
-            lockServo.write(90); // Buka kunci
+            lockServo.write(90);
             tone(BUZZER_PIN, 1000, 500);
             updateDisplay("Door Unlocked");
             Serial.println("Door Unlocked");
-        }
-        else if (receivedData == "DENY") {
+        } else if (receivedData == "SLEEP") {
+            digitalWrite(LED_GREEN, LOW);
+            digitalWrite(LED_RED, LOW);
+            lockServo.write(0);
+            updateDisplay("System in Sleep Mode");
+            Serial.println("System in Sleep Mode");
+        } else if (receivedData == "DENY") {
             digitalWrite(LED_GREEN, LOW);
             digitalWrite(LED_RED, HIGH);
             tone(BUZZER_PIN, 2000, 1000);
             updateDisplay("Access Denied");
             Serial.println("Access Denied");
         }
-
-        delay(5000); // Tunggu sebelum mengunci kembali
-        lockServo.write(0); // Kunci kembali
-        digitalWrite(LED_GREEN, LOW);
-        digitalWrite(LED_RED, LOW);
-        updateDisplay("Locked");
-        Serial.println("Locked");
     }
 }

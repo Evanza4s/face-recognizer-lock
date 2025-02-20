@@ -35,42 +35,41 @@ boolean matchFace = false;
 
 void startCameraServer();
 
-long getDistance() {
-    digitalWrite(TRIG_PIN, LOW);
-    delayMicroseconds(2);
-    digitalWrite(TRIG_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
+long getDistance() 
+// {
+//     digitalWrite(TRIG_PIN, LOW);
+//     delayMicroseconds(2);
+//     digitalWrite(TRIG_PIN, HIGH);
+//     delayMicroseconds(10);
+//     digitalWrite(TRIG_PIN, LOW);
 
-    long duration = pulseIn(ECHO_PIN, HIGH);
-    long distance = duration * 0.034 / 2;
-    return distance;
-}
+//     long duration = pulseIn(ECHO_PIN, HIGH);
+//     long distance = duration * 0.034 / 2;
+//     return distance;
+// }
 
-void updateDisplay(String message) {
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 20);
-    display.println(message);
-    display.display();
-}
+void updateDisplay(String message)
+// {
+//     display.clearDisplay();
+//     display.setTextSize(2);
+//     display.setTextColor(WHITE);
+//     display.setCursor(0, 20);
+//     display.println(message);
+//     display.display();
+// }
 
 void setup() {
     Serial.begin(115200);
-    Serial1.begin(9600, SERIAL_8N1, 2, 3); // TX ke Arduino
-
+    Serial1.begin(9600, SERIAL_8N1, 2, 3);
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
 
-    // Inisialisasi OLED
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         Serial.println("SSD1306 initialization failed");
         return;
     }
     updateDisplay("Starting...");
 
-    // Inisialisasi Kamera
     camera_config_t config;
     config.ledc_channel = LEDC_CHANNEL_0;
     config.ledc_timer = LEDC_TIMER_0;
@@ -126,16 +125,14 @@ void loop() {
 
     if (distance <= DISTANCE_THRESHOLD) {
         updateDisplay("Detecting Face...");
-        
-        // Simulasi Pengenalan Wajah
-        matchFace = random(0, 2); // 0 = Tidak dikenali, 1 = Dikenali
+        matchFace = random(0, 2);
 
         if (matchFace) {
             Serial1.println("OPEN");
             updateDisplay("Access Granted");
         } else {
-            Serial1.println("DENY");
-            updateDisplay("Access Denied");
+            Serial1.println("SLEEP");
+            updateDisplay("No Face Detected");
         }
     }
     delay(2000);
